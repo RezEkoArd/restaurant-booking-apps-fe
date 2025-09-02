@@ -1,34 +1,31 @@
-import { useAuthStore } from "@/store/useAuthStore";
-import { useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import React from 'react';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+import { type ProtectedRouteProps } from '../types';
+import { Loading } from './loading';
 
-interface ProtectedRouteProps {
-  children: React.ReactNode;
-  roles?: ("Pelayan" | "Kasir")[];
-}
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
+  children,
+  requiredRole,
+  redirectTo = '/login'
+}) => {
+  const { isAuthenticated, loading, hasRole } = useAuth();
 
-export function ProtectedRoute({ children, roles }: ProtectedRouteProps) {
-  const { user, isAuthenticated } = useAuthStore();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if(!isAuthenticated) {
-        navigate("/login", {replace: true });
-    } else if (roles && user){
-        const role = user.role_id === 1? "Pelayan" : "Kasir";
-        if(!role.includes(role)) {
-            navigate("/", { replace:true });
-        }
-    }
-  }, [isAuthenticated, user, roles, navigate]);
-
-  if (!isAuthenticated) return null;
-
-  if(roles && user) {
-    const role = user.role_id === 1 ? "Pelayan" : "Kasir";
-        if (!roles.includes(role)) {
-            return <div className="flex items-center justify-center h-screen text-red-500">Akses Ditolak</div>;
-        }
+  if (loading) {
+    return <div className='h-full w-full flex items-center justify-center'>
+      <Loading />
+    </div>;
   }
+
+  if (!isAuthenticated) {
+    return <Navigate to={redirectTo} replace />;
+  }
+
+  if (requiredRole && !hasRole(requiredRole)) {
+    return <Navigate to="/login" replace />;
+  }
+
   return <>{children}</>;
-}
+};
+
+export default ProtectedRoute;

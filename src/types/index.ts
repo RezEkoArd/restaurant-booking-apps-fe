@@ -3,14 +3,35 @@ export interface User {
   role_id: number;
   name: string;
   email: string;
+  email_verified_at: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface roles {
   id: number;
-  name: string;
+  name: 'Pelayan' | 'Kasir';
 }
+
+export interface LoginResponse {
+  message: string;
+  user: User;
+  token: string;
+}
+
+export interface AuthState {
+  user: User | null;
+  token: string | null;
+  isAuthenticated: boolean;
+}
+
+
+export interface ProtectedRouteProps {
+  children: React.ReactNode;
+  requiredRole?: 'Pelayan' | 'Kasir' | ('Pelayan' | 'Kasir')[];
+  redirectTo?: string;
+}
+
 
 export interface Table {
   id: number;

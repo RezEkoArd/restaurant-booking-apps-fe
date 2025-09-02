@@ -1,4 +1,4 @@
-// import { cn } from "@/lib/utils";
+
 import {
   Card,
   CardContent,
@@ -12,7 +12,8 @@ import { Link } from "react-router-dom";
 import { Loading } from "@/components/loading";
 import type { TableAllResponse } from "@/types/response";
 import axios from "axios" 
-
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 
 const DashboardPage = () => {
@@ -53,9 +54,18 @@ const DashboardPage = () => {
     fetchTables();
   },[]);
 
+
   const filteredTables = tables.filter((table) =>
     table.table_no.includes(searchTerm)
   );
+  
+    const { user, isAuthenticated, logout } = useAuth();
+    const navigate = useNavigate();
+
+    const handleLogout = () => {
+      logout();
+      navigate('/login');
+    }
 
    if (loading) {
     return (
@@ -94,9 +104,23 @@ const DashboardPage = () => {
           </div>
         </div>
 
-        <Link to="/login">
-          <Button className="cursor-pointer">Login</Button>
-        </Link>
+          {isAuthenticated ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <span className="font-semibold text-lg">Hello, {user?.name}</span>
+            {/* <span>({user?.role_id === 1 ? 'Pelayan' : 'Kasir'})</span> */}
+            <Button 
+              onClick={handleLogout}
+              className="cursor-pointer"
+            >
+              Logout
+            </Button>
+          </div>
+        ) : (
+          <Link to="/login">
+            <Button className="cursor-pointer">Login</Button>
+          </Link>
+        )}
+
       </header>
 
       <div className="p-6 h-[90vh] flex flex-col space-y-6 bg-slate-100">
@@ -126,7 +150,7 @@ const DashboardPage = () => {
                 <div className="w-3 h-3 bg-yellow-500 rounded"></div>
                 <span>Reserved</span>
                 <div className="w-3 h-3 bg-gray-500 rounded"></div>
-                <span>Inactive</span>
+                <span>Maintenance</span>
               </div>
             </div>
 

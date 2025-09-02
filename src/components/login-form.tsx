@@ -9,60 +9,49 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { useState } from "react"
-import { useForm } from "react-hook-form"
-import { loginSchema, type LoginFormData } from "@/lib/schemas/loginSchema"
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate } from "react-router-dom";
-import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
-import axios from "axios" 
-import type { ErrorLoginResponse, LoginResponse } from "@/types/response"
+import { useAuth } from "@/hooks/useAuth"
+import { Label } from "./ui/label"
+import { api } from "@/services/api"
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
-   
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const navigate = useNavigate();
 
-    const form = useForm<LoginFormData>({
-        resolver: zodResolver(loginSchema),
-        defaultValues: {
-            email: "",
-            password: "",
-        },
-    });
+      const { login } = useAuth();
+      const navigate = useNavigate();
 
-    const onSubmit = async (data: LoginFormData) => {
+      const handleSubmit = async (e: React.FormEvent) => {
+         e.preventDefault();
         setLoading(true);
-        setError(null);
+        setError('');
+
         try {
-            const response = await axios.post<LoginResponse>('http://127.0.0.1:8000/api/login', {
-                email:  data.email,
-                password:  data.password,
+          // Ganti dengan API call sesungguhnya
+          const data = await api.post('/api/login', { 
+              email, 
+              password 
             });
 
-            // Simpan token
-            localStorage.setItem("token", response.data.token);
-            navigate("/dashboard");
-
-        }  catch (err: any)  {
-            // Cek apakah error memiliki response dari server
-            if (err?.response?.data) {
-                const errorData = err.response.data as ErrorLoginResponse;
-                setError(errorData.message || "Login gagal.");
-            } else if (err?.request) {
-                // Request dibuat tapi tidak ada response (network error)
-                setError("Terjadi kesalahan jaringan. Periksa koneksi internet Anda.");
+            if (data.message === 'Login successful') {
+              login(data.user, data.token);
+              navigate('/');
             } else {
-                // Error lainnya
-                setError("Terjadi kesalahan yang tidak dikenal.");
+              setError(data.message || 'Login failed');
             }
-        } finally {
+          } catch (err: any) {
+            setError('Login failed. Please check your credentials.');
+            console.error('Login error:', err);
+          } finally {
             setLoading(false);
-        }
-    }
+          }
+      }
+
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
@@ -73,50 +62,45 @@ export function LoginForm({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Form {...form}>
-             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                  {error && (
-                <p className="text-sm text-red-500 text-center">{error}</p>
-              )}
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input placeholder="user@example.com" type="email" disabled={loading} {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="••••••••"
-                        disabled={loading}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Loading..." : "Login"}
-              </Button>
-            </form>
-          </Form>
+            <form onSubmit={handleSubmit}>
+            <div className="flex flex-col gap-6">
+                {error && <div className="error">{error}</div>}
+              <div className="grid gap-3">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="m@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="grid gap-3">
+                <div className="flex items-center">
+                  <Label htmlFor="password">Password</Label>
+                </div>
+                <Input 
+                  id="password" 
+                  type="password" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required 
+                />
+              </div>
+              <div className="flex flex-col gap-3">
+                <Button type="submit" className="w-full" disabled={loading}>
+                   {loading ? 'Logging in...' : 'Login'}
+                </Button>
+              </div>
+            </div>
+            <div className="mt-4 text-center text-sm">
+              Don&apos;t have an account?{" "}
+              <a href="#" className="underline underline-offset-4">
+                Sign up
+              </a>
+            </div>
+          </form>
         </CardContent>
       </Card>
     </div>
