@@ -184,7 +184,7 @@ const DashboardPage = () => {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" className="cursor-pointer">
                           Open Order
                         </Button>
                       </TableCell>
