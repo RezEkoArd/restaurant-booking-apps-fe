@@ -18,7 +18,7 @@ function App() {
       />
 
        {/* Protected Routes - Accessible by both roles */}
-        <Route path="/orders" element={
+        <Route path="/orders/:id" element={
           <ProtectedRoute>
             <DetailOrderPage />
           </ProtectedRoute>
@@ -26,7 +26,7 @@ function App() {
 
           {/* Routes khusus Pelayan */}
         {/* <Route path="/orders" element={
-          <ProtectedRoute requiredRole="pelayan">
+          <ProtectedRoute requiredRole="elayan">
             <OrderManagement />
           </ProtectedRoute>
         } /> */}

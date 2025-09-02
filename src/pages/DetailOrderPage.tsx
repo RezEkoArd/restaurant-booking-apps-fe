@@ -15,6 +15,7 @@ import {
   ChefHat,
 } from "lucide-react";
 
+
 // Types
 interface MenuItem {
   id: number;
@@ -64,6 +65,7 @@ const menuItems: MenuItem[] = [
 ];
 
 const DetailOrderPage = () => {
+  
   const [selectedCategory, setSelectedCategory] = useState("Appetizers");
   const [searchTerm, setSearchTerm] = useState("");
   const [orderItems, setOrderItems] = useState<OrderItem[]>([

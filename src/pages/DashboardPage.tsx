@@ -14,6 +14,8 @@ import type { TableAllResponse } from "@/types/response";
 import axios from "axios" 
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import OrderTableButton from "@/components/OpenOrderBtn";
+import OrderTableButtonList from "@/components/OpenOrderBtnList";
 
 
 const DashboardPage = () => {
@@ -66,6 +68,7 @@ const DashboardPage = () => {
       logout();
       navigate('/login');
     }
+
 
    if (loading) {
     return (
@@ -158,21 +161,12 @@ const DashboardPage = () => {
             {viewMode === "grid" && (
               <div className="grid grid-cols-6 gap-3 mb-6">
                 {filteredTables.map((table) => {
-                  const bgColor =
-                    table.status === "available"
-                      ? "bg-green-500"
-                      : table.status === "occupied"
-                      ? "bg-red-500"
-                      : table.status === "reserved"
-                      ? "bg-yellow-500"
-                      : "bg-gray-500";
                   return (
-                    <button
-                      key={table.id}
-                      className={`px-2 py-10 rounded-lg ${bgColor} text-white font-semibold transition hover:opacity-80 cursor-pointer`}
-                    >
-                      {table.table_no}
-                    </button>
+                    <OrderTableButton
+                        key={table.id} 
+                        table={table} 
+                      />
+                    
                   );
                 })}
               </div>
@@ -208,9 +202,10 @@ const DashboardPage = () => {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <Button variant="outline" size="sm" className="cursor-pointer">
-                          Open Order
-                        </Button>
+                            <OrderTableButtonList    
+                            key={table.id} 
+                            table={table} />
+                        
                       </TableCell>
                     </TableRow>
                   ))}
