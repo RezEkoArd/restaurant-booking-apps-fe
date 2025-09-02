@@ -41,3 +41,9 @@ export interface Order {
   opened_at: Date;
   closed_at: Date;
 }
+
+export interface TableItem {
+  id: number;
+  table_no: string;
+  status: "available" | "occupied" | "reserved" | "maintenance";
+}
