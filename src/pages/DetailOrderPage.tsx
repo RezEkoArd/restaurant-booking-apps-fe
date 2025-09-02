@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation, useNavigate, useParams, } from "react-router-dom";
 import { 
   Card, 
   CardContent, 
@@ -13,94 +14,71 @@ import {
   Printer,
   Save,
   ChefHat,
+  Loader2
 } from "lucide-react";
+import { menuService } from "@/services/menuService";
+import { useAuth } from "@/hooks/useAuth";
+import { type Menu, type OrderItem } from "@/types";
+import { orderService } from "@/services/orderService";
 
 
-// Types
-interface MenuItem {
+  interface OrderItemUI {
   id: number;
-  name: string;
-  description: string;
-  price: number;
-  category: string;
-}
-
-interface OrderItem {
-  id: number;
-  menuItem: MenuItem;
+  menu: Menu;
   quantity: number;
   notes?: string;
 }
 
-// Mock menu data
-const menuItems: MenuItem[] = [
-  {
-    id: 1,
-    name: "Caesar Salad",
-    description: "Fresh romaine lettuce, parmesan cheese, croutons",
-    price: 16.98,
-    category: "Appetizers"
-  },
-  {
-    id: 2,
-    name: "Buffalo Wings",
-    description: "Crispy chicken wings with buffalo sauce and blue cheese",
-    price: 14.99,
-    category: "Appetizers"
-  },
-  {
-    id: 3,
-    name: "Mozzarella Sticks",
-    description: "Golden fried mozzarella with marinara sauce",
-    price: 8.99,
-    category: "Appetizers"
-  },
-  {
-    id: 4,
-    name: "Spinach Artichoke Dip",
-    description: "Creamy dip served with tortilla chips",
-    price: 11.99,
-    category: "Appetizers"
-  }
-];
-
 const DetailOrderPage = () => {
-  
-  const [selectedCategory, setSelectedCategory] = useState("Appetizers");
+  const { id } = useParams<{ id: string }>(); 
+  const navigate = useNavigate();
+   const tableId = id ? id.replace('T', '') : '';
+  const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchTerm, setSearchTerm] = useState("");
-  const [orderItems, setOrderItems] = useState<OrderItem[]>([
-    {
-      id: 1,
-      menuItem: menuItems[0],
-      quantity: 2
-    },
-    {
-      id: 2,
-      menuItem: menuItems[1],
-      quantity: 1
-    }
-  ]);
+  const [menus, setMenus] = useState<Menu[]>([]);
+  const [orderItems, setOrderItems] = useState<OrderItemUI[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sendingToKitchen, setSendingToKitchen] = useState(false);
+  const { user } = useAuth();
 
-  const categories = ["Appetizers", "Main Course", "Desserts", "Beverages", "Salads"];
+  useEffect(() => {
+    const fetchMenus = async () => {
+      try {
+        setLoading(true);
+        const menusData = await menuService.getMenus();
+        setMenus(menusData);
+      } catch (error) {
+        console.error('Error fetching menu:', error);
+        alert('Gagal memuat menu. Silakan coba lagi.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMenus();
+  }, []);
+
+  // Get unique categories from menu items
+  const categories = ["All", ...new Set(menus.map(menu => menu.category))]
   
-  const filteredMenuItems = menuItems.filter(item => 
-    item.category === selectedCategory &&
-    item.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredMenus = menus.filter(menu => 
+    (selectedCategory === "All" || menu.category === selectedCategory) &&
+    menu.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const addToOrder = (menuItem: MenuItem) => {
-    const existingItem = orderItems.find(item => item.menuItem.id === menuItem.id);
+  const addToOrder = (menu: Menu) => {
+    const existingItem = orderItems.find(item => item.menu.id === menu.id);
     
     if (existingItem) {
       setOrderItems(orderItems.map(item =>
-        item.menuItem.id === menuItem.id
+        item.menu.id === menu.id
           ? { ...item, quantity: item.quantity + 1 }
           : item
       ));
     } else {
-      const newOrderItem: OrderItem = {
+      const newOrderItem: OrderItemUI = {
         id: Date.now(),
-        menuItem,
+        menu,
         quantity: 1
       };
       setOrderItems([...orderItems, newOrderItem]);
@@ -119,25 +97,71 @@ const DetailOrderPage = () => {
     }
   };
 
-  const getTotalAmount = () => {
+  const sendToKitchen = async () => {
+    if (orderItems.length === 0) return;
+
+    setSendingToKitchen(true);
+    try {
+      // Convert UI order items to API order items
+      const orderItemsApi: OrderItem[] = orderItems.map(item => ({
+        id: 0, // Will be assigned by backend
+        order_id: 0, // Will be assigned by backend
+        menu_id: item.menu.id,
+        quantity: item.quantity,
+        price: item.menu.price,
+        subtotal: (parseFloat(item.menu.price) * item.quantity).toString()
+      }));
+
+      const response = await menuService.createOrder(parseInt(tableId), orderItemsApi);
+      
+      if (response) {
+        alert('Order berhasil dikirim ke dapur!');
+        setOrderItems([]);
+        // Optional: redirect to orders list or stay on page
+        navigate('/orders');
+      } else {
+        alert('Gagal mengirim order');
+      }
+    } catch (error: any) {
+      console.error('Error sending to kitchen:', error);
+      alert('Terjadi error saat mengirim order: ' + error.message);
+    } finally {
+      setSendingToKitchen(false);
+    }
+  };
+
+   const getTotalAmount = () => {
     return orderItems.reduce((total, item) => 
-      total + (item.menuItem.price * item.quantity), 0
+      total + (parseFloat(item.menu.price) * item.quantity), 0
     );
   };
 
   const formatCurrency = (amount: number) => {
-    return `$${amount.toFixed(2)}`;
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0
+    }).format(amount);
   };
+  
+  if (loading) {
+      return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+          <span className="ml-2 text-gray-600">Loading menu...</span>
+        </div>
+      );
+    }
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Left Panel - Menu */}
       <div className="flex-1 p-6">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Table 12</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Table {id}</h1>
           <div className="flex items-center gap-2 text-gray-600">
             <User className="h-4 w-4" />
-            <span>Sarah Johnson</span>
+            <span>{user?.name || 'Pelayan'}</span>
           </div>
         </div>
 
@@ -163,7 +187,7 @@ const DetailOrderPage = () => {
         <div className="relative mb-6">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
-            placeholder="Search menu items..."
+            placeholder="Cari menu..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -172,33 +196,42 @@ const DetailOrderPage = () => {
 
         {/* Menu Items */}
         <div className="space-y-4">
-          {filteredMenuItems.map((item) => (
-            <Card 
-              key={item.id} 
-              className="cursor-pointer hover:shadow-md transition-shadow border border-gray-200"
-              onClick={() => addToOrder(item)}
-            >
-              <CardContent className="p-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900 mb-1">{item.name}</h3>
-                    <p className="text-sm text-gray-600 mb-2">{item.description}</p>
-                    <p className="text-lg font-bold text-gray-900">{formatCurrency(item.price)}</p>
+          {filteredMenus.length === 0 ? (
+            <div className="text-center py-12">
+              <ChefHat className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500">Tidak ada menu ditemukan</p>
+            </div>
+          ) : (
+            filteredMenus.map((menu) => (
+              <Card 
+                key={menu.id} 
+                className="cursor-pointer hover:shadow-md transition-shadow border border-gray-200"
+                onClick={() => addToOrder(menu)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-gray-900 mb-1">{menu.name}</h3>
+                      {/* <p className="text-sm text-gray-600 mb-2">{menu.description || 'Tidak ada deskripsi'}</p> */}
+                      <p className="text-lg font-bold text-gray-900">
+                        {formatCurrency(parseFloat(menu.price))}
+                      </p>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      className="ml-4 bg-gray-900 hover:bg-gray-800"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        addToOrder(menu);
+                      }}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <Button 
-                    size="sm" 
-                    className="ml-4 bg-gray-900 hover:bg-gray-800"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      addToOrder(item);
-                    }}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
       </div>
 
@@ -206,11 +239,11 @@ const DetailOrderPage = () => {
       <div className="w-96 bg-white border-l border-gray-200 flex flex-col">
         {/* Order Header */}
         <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Current Order</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Order Saat Ini</h2>
           <div className="flex items-center gap-2 text-sm text-gray-600">
-            <span>Table 12</span>
+            <span>Table {id}</span>
             <span>•</span>
-            <span>January 15, 2025</span>
+            <span>{new Date().toLocaleDateString('id-ID')}</span>
           </div>
         </div>
 
@@ -219,8 +252,8 @@ const DetailOrderPage = () => {
           {orderItems.length === 0 ? (
             <div className="text-center py-12">
               <ChefHat className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">No items in order</p>
-              <p className="text-sm text-gray-400">Start by selecting menu items</p>
+              <p className="text-gray-500">Belum ada item dalam order</p>
+              <p className="text-sm text-gray-400">Pilih menu untuk memulai</p>
             </div>
           ) : (
             orderItems.map((item) => (
@@ -228,12 +261,14 @@ const DetailOrderPage = () => {
                 <CardContent className="p-4">
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
-                      <h4 className="font-medium text-gray-900">{item.menuItem.name}</h4>
-                      <p className="text-sm text-gray-600">{formatCurrency(item.menuItem.price)}</p>
+                      <h4 className="font-medium text-gray-900">{item.menu.name}</h4>
+                      <p className="text-sm text-gray-600">
+                        {formatCurrency(parseFloat(item.menu.price))}
+                      </p>
                     </div>
                     <div className="text-right">
                       <p className="font-bold text-gray-900">
-                        {formatCurrency(item.menuItem.price * item.quantity)}
+                        {formatCurrency(parseFloat(item.menu.price) * item.quantity)}
                       </p>
                     </div>
                   </div>
@@ -266,7 +301,7 @@ const DetailOrderPage = () => {
                       className="text-red-600 hover:text-red-700 hover:bg-red-50"
                       onClick={() => updateQuantity(item.id, 0)}
                     >
-                      Remove
+                      Hapus
                     </Button>
                   </div>
                 </CardContent>
@@ -287,10 +322,15 @@ const DetailOrderPage = () => {
             <div className="space-y-3">
               <Button 
                 className="w-full bg-gray-900 hover:bg-gray-800 text-white gap-2 py-3"
-                onClick={() => console.log("Send to Kitchen clicked")}
+                onClick={sendToKitchen}
+                disabled={sendingToKitchen}
               >
-                <ChefHat className="h-4 w-4" />
-                Send to Kitchen
+                {sendingToKitchen ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ChefHat className="h-4 w-4" />
+                )}
+                {sendingToKitchen ? 'Mengirim...' : 'Kirim ke Dapur'}
               </Button>
               
               <div className="grid grid-cols-2 gap-3">
@@ -300,7 +340,7 @@ const DetailOrderPage = () => {
                   onClick={() => console.log("Save Draft clicked")}
                 >
                   <Save className="h-4 w-4" />
-                  Save Draft
+                  Simpan Draft
                 </Button>
                 <Button 
                   variant="outline" 
@@ -316,7 +356,7 @@ const DetailOrderPage = () => {
         )}
       </div>
     </div>
-  );
+  )
 };
 
 export default DetailOrderPage;

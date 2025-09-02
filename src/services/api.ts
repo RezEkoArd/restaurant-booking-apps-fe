@@ -12,6 +12,13 @@ export const api = {
       },
     });
 
+    if (response.status === 401) {
+      // Token expired atau invalid
+      localStorage.removeItem('auth_data'); // Clear auth data
+      window.location.href = '/login'; // Redirect to login
+      throw new Error('Authentication failed. Please login again.');
+    }
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }

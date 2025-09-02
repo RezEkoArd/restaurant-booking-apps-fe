@@ -41,6 +41,7 @@ export interface Table {
 
 export interface Menu {
   id: number,
+  name: string,
   price: string,
   category: string,
 }
@@ -57,6 +58,7 @@ export interface OrderItem {
 export interface Order {
   id: number;
   table_id: number;
+  user_id: number;
   status: string;
   total_price: string;
   opened_at: Date;

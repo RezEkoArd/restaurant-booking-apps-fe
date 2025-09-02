@@ -1,19 +1,18 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { api } from '../services/api';
 import { Button } from './ui/button';
-import type { Table } from '@/types';
-
-
+import type {  TableItem } from '@/types';
+import { orderService } from '@/services/orderService';
 
 
 interface OrderTableButtonProps {
-    table: Table;
+    table: TableItem;
 }
 
 const  OrderTableButtonList: React.FC<OrderTableButtonProps> = ({ table }) => {
-    const [loading, setLoading] = useState(false);
+      const [loading, setLoading] = useState(false);
+      const [error, setError] = useState('');
     const navigate = useNavigate();
     const { hasRole, isAuthenticated } = useAuth();
 
@@ -21,36 +20,36 @@ const  OrderTableButtonList: React.FC<OrderTableButtonProps> = ({ table }) => {
     const isAvailable = table.status === 'available';
     const isDisabled = !isAuthenticated || !isPelayan || !isAvailable || loading;
 
-    const handleClick = async (e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent default link behavior
-    
-    if (isDisabled) return;
+    const handleClick = async () => {
+      if (isDisabled) return;
+      setLoading(true);
 
-    setLoading(true);
-
-    try {
-      // POST request untuk create order
-      const response = await api.post('/api/orders', {
-        table_id: table.id
-      });
-
-      if (response.success || response.data || response.order) {
-        // Navigate ke halaman order detail
-        navigate(`/orders/${table.id}`);
-      } else {
-        alert('Gagal membuat order. Silakan coba lagi.');
+      try {
+        // Open table (create new order)
+        const response = await orderService.openTable(table.id);
+        console.log('Open id table response:', response);
+        
+        if (response && response.id) {
+          // Navigate ke detail order page dengan order ID
+          navigate(`/orders/${response.id}`, { 
+            state: { 
+              tableNo: table.table_no,
+              orderData: response 
+            } 
+          });
+        } else {
+          throw new Error('Invalid response from server');
+        }
+      } catch (error: any) {
+        console.error('Error opening table:', error);
+        setError(error.message || 'Gagal membuka meja. Silakan coba lagi.');
+      } finally {
+        setLoading(false);
       }
-    } catch (error: any) {
-      console.error('Error creating order:', error);
-      alert(error.message || 'Terjadi kesalahan saat membuat order');
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
   
   return (
     <>
-
         <Button variant="outline" size="sm" className={`cursor-pointer ${
             isDisabled ? 'opacity-90 cursor-not-allowed' : 'cursor-pointer'
             } block text-center` }
@@ -62,6 +61,11 @@ const  OrderTableButtonList: React.FC<OrderTableButtonProps> = ({ table }) => {
             <span>Open Order</span>
             )}
         </Button>
+        {error && (
+          <div className="absolute top-full left-0 mt-1 text-red-500 text-xs">
+            {error}
+          </div>
+        )}
     </>
   );
 };
